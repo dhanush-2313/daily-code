@@ -5,7 +5,12 @@ docker_running="N"
 
 function migrate_seed_db () {
   echo "=================Migrating DB================="
-  migration_output=$(npx prisma migrate dev)
+  migration_output=$(npx prisma migrate dev 2>&1)
+
+  if [[ $? -ne 0 ]]; then
+    echo "Migration failed: $migration_output"
+    exit 1
+  fi
 
   if [[ $migration_output == *"Running seed command"* ]]; then
     echo "Seeds already applied. Skipping seeding."
@@ -13,6 +18,10 @@ function migrate_seed_db () {
     echo "Seeds not applied. Proceeding to seed."
     echo "=================Seeding DB================="
     npx prisma db seed
+    if [[ $? -ne 0 ]]; then
+      echo "Seeding failed."
+      exit 1
+    fi
   fi
 }
 
@@ -54,6 +63,7 @@ if [ "$db_type" == 'l' ]; then
     DATABASE_URL="postgresql://postgres:password@localhost:5432/100xdevs"
   else
     echo "Invalid Option"
+    exit 1
   fi
 
 elif [ "$db_type" == 'c' ]; then
@@ -66,14 +76,15 @@ else
 fi
 
 echo "DATABASE_URL=\"$DATABASE_URL\"" > .env
+
 if [ "$db_mode" == 'd' ]; then
   docker-compose up -d
   if [ $? -eq 0 ]; then
-      echo "=================Container is up================="
-      sleep 15
+    echo "=================Container is up================="
+    sleep 15
   else
-      echo "Please make sure that docker is running"
-      exit 1
+    echo "Please make sure that docker is running"
+    exit 1
   fi
 fi
 
